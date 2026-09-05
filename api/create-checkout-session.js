@@ -10,8 +10,7 @@ module.exports = async (req, res) => {
   );
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
@@ -21,16 +20,20 @@ module.exports = async (req, res) => {
   try {
     const { items, email, customerName, phone, address, notes, orderType } = req.body;
 
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'No se enviaron productos.' });
+    }
+
     const lineItems = items.map(item => ({
       price_data: {
         currency: 'mxn',
         product_data: {
           name: item.name,
-          description: `La Pulquería - ${orderType === 'delivery' ? 'Entrega a Domicilio' : 'Recoger sin filas'}`,
+          description: `La Pulquería - ${orderType === 'domicilio' || orderType === 'delivery' ? 'Entrega a Domicilio' : 'Recoger sin filas'}`,
         },
         unit_amount: Math.round(item.price * 100),
       },
-      quantity: item.qty,
+      quantity: item.quantity || item.qty || 1,
     }));
 
     const session = await stripe.checkout.sessions.create({
@@ -40,14 +43,14 @@ module.exports = async (req, res) => {
       customer_email: email,
       metadata: {
         negocio: 'La Pulquería',
-        cliente: customerName,
-        telefono: phone,
+        cliente: customerName || 'No especificado',
+        telefono: phone || 'No especificado',
         direccion: address || 'Recoge en sucursal',
         notas: notes || 'Sin notas',
-        tipo_pedido: orderType,
+        tipo_pedido: orderType || 'domicilio',
       },
-      success_url: `${req.headers.origin || 'https://lapulqueria.com'}?success=true`,
-      cancel_url: `${req.headers.origin || 'https://lapulqueria.com'}?canceled=true`,
+      success_url: `${req.headers.origin || 'https://www.homemexaglobal.com'}?success=true`,
+      cancel_url: `${req.headers.origin || 'https://www.homemexaglobal.com'}?canceled=true`,
     });
 
     return res.status(200).json({ url: session.url });
