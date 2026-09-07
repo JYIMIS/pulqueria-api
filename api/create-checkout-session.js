@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { items, email, customerName, phone, address, notes, orderType, scheduleTime } = req.body;
+    const { items, email, customerName, phone, notes, orderType, scheduleTime } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No se enviaron productos.' });
@@ -36,21 +36,21 @@ module.exports = async (req, res) => {
       quantity: item.quantity || item.qty || 1,
     }));
 
-    // Definir la dirección según el tipo de pedido
-    const direccionFinal = (orderType === 'domicilio' || orderType === 'delivery') 
-      ? (address || 'Dirección no especificada') 
-      : 'Recoger en Tienda (Sin filas)';
-
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       customer_email: email,
+      
+      // 📦 AQUÍ LE DECIMOS A STRIPE QUE SOLICITE LA DIRECCIÓN DE ENVÍO
+      shipping_address_collection: {
+        allowed_countries: ['MX'], // Puedes agregar más países si lo necesitas, ej: ['MX', 'US']
+      },
+
       metadata: {
         negocio: 'La Pulquería',
         cliente: customerName || 'No especificado',
         telefono: phone || 'No especificado',
-        direccion: direccionFinal,
         horario_elegido: scheduleTime || 'Lo antes posible',
         notas: notes || 'Sin notas',
         tipo_pedido: orderType || 'domicilio',
